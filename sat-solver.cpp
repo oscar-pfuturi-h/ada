@@ -4,22 +4,20 @@
 #include <iostream>
 #include <string>
 #include <vector>
-#include <stdio.h>
+#include <bits/stdc++.h>
+#include <stdlib.h>
 
 using namespace std;
 
 enum Cat {
   satisfied,
-  unsatisfied,
-  normal,
-  completed
+  unsatisfied
 };
 
 
 class Formula {
 public:
   vector<vector<int> > literals;
-  vector<int> literal_frequency;
   vector<int> literal_polarity;
   vector<vector<int> > clauses;
   Formula() {}
@@ -27,7 +25,6 @@ public:
   Formula(const Formula &f) {
     literals = f.literals;
     clauses = f.clauses;
-    literal_frequency = f.literal_frequency;
     literal_polarity = f.literal_polarity;
   }
 };
@@ -37,46 +34,49 @@ private:
   Formula formula;               // formula inicial en cnf
   int literal_count;             // numero de variables en la formula
   int clause_count;              // numero de clausulas en la formula
-  int unit_propagate(Formula &); // performs unit propagation
-  int DPLL(Formula);             // performs DPLL recursively
-  int apply_transform(Formula &, int); // applies the value of the literal in every clause
-  void show_result(Formula &); // displays the result
+  void show_result(Formula &); // imprime los resultados
   int get_values(Formula &);
   int is_satisfiable(Formula &, int);
+  void get_tabletf(int);
 public:
   SATSolver() {}
-  void initialize(); // initializes the values
+  void initialize(string); // initializes the values
   void solve();      // calls the solver
+  Formula get_formula() {return formula;}
+
+  SATSolver operator - (SATSolver b){
+      SATSolver s;
+      int cont = 0;
+      int flag;
+      for (unsigned int i=0; i<formula.literals.size(); i++){
+        for (unsigned int j=0; j<b.formula.literals.size(); j++){
+            for (int k=0; k<literal_count; k++){
+                if (formula.literals[i][k] == b.formula.literals[j][k]){
+                    flag = satisfied;
+                } else { flag = unsatisfied; break;}
+            }
+            if (flag == satisfied){
+                cont++;
+                s.formula.literals.resize(cont);
+                for (int p=0; p<literal_count; p++){
+                    s.formula.literals[cont-1].push_back(formula.literals[i][p]);
+                }
+            }
+        }
+      }
+      return s;
+  }
 };
 
-void SATSolver::initialize() {
-  char c;
-  string s;
-
-  while (true) {
-    cin >> c;
-    if (c == 'c'){
-      getline(cin, s);
-    }
-    else{
-      cin >> s;
-      break;
-    }
-  }
-  cin >> literal_count;
-  cin >> clause_count;
-
-  formula.literals.clear();
-  formula.literals.resize( pow(2,literal_count) );
-
-  int razon;
+void SATSolver::get_tabletf(int n){
+    int razon;
 	int fi;
 	int cont;
 	int i, div = 2;
 
-	fi = pow(2,literal_count);
+	fi = pow(2,n);
 
-	for(int j=0; j<literal_count; j++){
+	for(int j=0; j<n; j++){
 		i = 0;
 		cont = 1;
 		razon = fi/div;
@@ -95,19 +95,45 @@ void SATSolver::initialize() {
 
 		div *= 2;
 	}
-
-  /*for(int fil=0; fil < fi; fil++){
+	/*for(int fil=0; fil < fi; fil++){
     for(int col=0; col<literal_count; col++){
         int res = formula.literals[fil][col];
         cout<< res <<" ";
     }
     cout<<endl;
-  }*/
+    }*/
+}
+
+void SATSolver::initialize(string f_name) {
+    fstream reader;
+    reader.open(f_name, fstream::in);
+    char c;
+    string s;
+
+  while (true) {
+    reader >> c;
+    //cin >> c;
+    if (c == 'c'){
+      getline(reader, s);
+    }
+    else{
+      reader >> s;
+  //cin >> s
+      break;
+    }
+  }
+  reader >> literal_count;
+  reader >> clause_count;
+  //cin >> literal_count;
+  //cin >> clause_count;
+
+  formula.literals.clear();
+  formula.literals.resize( pow(2,literal_count) );
+
+  get_tabletf(literal_count);
 
   formula.clauses.clear();
   formula.clauses.resize(clause_count);
-  formula.literal_frequency.clear();
-  formula.literal_frequency.resize(literal_count, 0);
   formula.literal_polarity.clear();
   formula.literal_polarity.resize(literal_count, 0);
 
@@ -116,7 +142,8 @@ void SATSolver::initialize() {
   for (int i = 0; i < clause_count; i++) {
     while (true) // while the ith clause gets more literals
     {
-      cin >> literal;
+        reader >> literal;
+      //cin >> literal;
       if (literal != 0){
       	formula.clauses[i].push_back(literal);
       }
@@ -128,7 +155,7 @@ void SATSolver::initialize() {
 }
 
 int SATSolver::get_values(Formula & f){
-	int k = 0;
+	unsigned int k = 0;
 	int s;
 	while (k < f.literals.size()){
 		s = is_satisfiable(f,k);
@@ -148,7 +175,7 @@ int SATSolver::get_values(Formula & f){
 int SATSolver::is_satisfiable(Formula & f, int k){
 	int s;
 	for (int i=0; i<clause_count; i++){
-		for (int j=0; j<f.clauses[i].size(); j++){
+		for (unsigned int j=0; j<f.clauses[i].size(); j++){
 			if(f.literals[k][abs(f.clauses[i][j])-1] * (f.clauses[i][j]) > 0){
 				s = Cat::satisfied;
 				break;//la clausula es verdadera
@@ -167,8 +194,8 @@ int SATSolver::is_satisfiable(Formula & f, int k){
 void SATSolver::show_result(Formula & f) {
     cout << "Es satisfacible para:" << endl;
     int l;
-    for (int i = 0; i < f.literals.size(); i++) {
-    	for (int j = 0; j < f.literals[i].size(); j++){
+    for (unsigned int i = 0; i < f.literals.size(); i++) {
+    	for (unsigned int j = 0; j < f.literals[i].size(); j++){
         l = *(f.literals[i].begin()+j) * (j+1);
     		cout<< l <<" ";
     	}
@@ -185,9 +212,44 @@ void SATSolver::solve() {
   }
 }
 
+/*SATSolver interseccion(SATSolver s1, SATSolver s2){
+    SATSolver s3;
+    for (int i=0; i<s1.formula.literals[])
+        s1.get_formula().literals
+}*/
+
 int main() {
-  SATSolver solver; // create the solver
-  solver.initialize();  // initialize
-  solver.solve();       // solve
-  return 0;
+    /*char name[] = "input";
+    char c;
+    string n = "input";
+    int x = 1;
+    n = n + to_string(x) + ".txt";
+    for (int i=1; i<3; i++){
+        name = strcat(name,char(i)+".txt");
+        cout<<a<<endl;
+        SATSolver solver; // create the solver
+        solver.initialize(a);  // initialize
+        solver.solve();       // solve
+    }*/
+    SATSolver solver; // create the solver
+    solver.initialize("input1.txt");  // initialize
+    solver.solve();       // solve
+
+    SATSolver solver2; // create the solver
+    solver2.initialize("input2.txt");  // initialize
+    solver2.solve();       // solve
+
+    SATSolver solver3;
+    solver3 = solver - solver2;
+    int val;
+    for (unsigned int i=0; i<solver3.get_formula().literals.size(); i++){
+        for (unsigned int j=0; j<solver3.get_formula().literals[i].size(); j++){
+            val = *(solver3.get_formula().literals[i].begin()+j) * (j+1);
+            cout<< val << " ";
+        }
+        cout<<endl;
+    }
+    //solver3.show_result(solver3.get_formula());
+
+    return 0;
 }
